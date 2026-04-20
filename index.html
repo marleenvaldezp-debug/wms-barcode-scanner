@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>WMS Scanner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root{--bg:#0a0f1e;--surface:#111827;--surface2:#1e2a3a;--border:#1f3a5f;--accent:#00d4ff;--accent2:#00ff9d;--danger:#ff4757;--warning:#ffa502;--text:#e2e8f0;--text2:#94a3b8;--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.header-back{background:var(--surface2);border:1px solid var(--border);color:var(--accent);width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;flex-shrink:0}
+.header-title{font-size:15px;font-weight:700}
+.header-sub{font-size:11px;color:var(--text2);font-family:var(--mono)}
+.header-badge{margin-left:auto;background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;font-family:var(--mono)}
+.content{flex:1;padding:18px;overflow-y:auto}
+.footer-bar{padding:14px 18px;border-top:1px solid var(--border);background:var(--surface)}
+.search-wrap{position:relative;margin-bottom:12px}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px 13px 42px;color:var(--text);font-size:15px;font-family:var(--sans);outline:none;transition:border-color .2s}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--text2)}
+.search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:17px;color:var(--text2)}
+.search-hint{font-size:11px;color:var(--text2);margin-bottom:10px;font-family:var(--mono)}
+.product-list{display:flex;flex-direction:column;gap:8px}
+.product-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;align-items:center;gap:11px;position:relative;overflow:hidden}
+.product-card:active{transform:scale(.98)}
+.product-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);transition:background .2s}
+.product-card:hover::before,.product-card.pending::before{background:var(--warning)}
+.product-card.done::before{background:var(--accent2)}
+.pc-icon{width:38px;height:38px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.pc-info{flex:1;min-width:0}
+.pc-code{font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:2px}
+.pc-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-loc{font-size:11px;color:var(--text2);margin-top:2px}
+.pc-arrow{color:var(--text2);font-size:18px;flex-shrink:0}
+.pc-status{position:absolute;right:10px;top:10px;font-size:10px;padding:2px 6px;border-radius:6px;font-family:var(--mono);font-weight:700}
+.pc-status.done{background:rgba(0,255,157,.1);color:var(--accent2)}
+.pc-status.pending{background:rgba(255,165,2,.1);color:var(--warning)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.detail-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-label{font-size:10px;color:var(--text2);font-family:var(--mono);text-transform:uppercase}
+.detail-value{font-size:13px;font-weight:600;text-align:right;max-width:65%;word-break:break-word}
+.detail-value.code{font-family:var(--mono);color:var(--accent)}
+.section-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-family:var(--mono)}
+.level-row{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px}
+.level-num{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.level-num.n1{background:rgba(0,212,255,.15);color:var(--accent)}
+.level-num.n2{background:rgba(0,255,157,.15);color:var(--accent2)}
+.level-num.n3{background:rgba(255,165,2,.15);color:var(--warning)}
+.level-num.n4{background:rgba(255,71,87,.15);color:var(--danger)}
+.level-info{flex:1}
+.level-name{font-size:12px;font-weight:600}
+.level-barcode{font-size:11px;font-family:var(--mono);color:var(--text2);margin-top:1px}
+.level-check{font-size:18px}
+.scanner-wrap{background:#000;border-radius:14px;overflow:hidden;position:relative;margin-bottom:14px;aspect-ratio:1}
+#quagga-scanner{width:100%;height:100%}
+#quagga-scanner video{width:100%!important;height:100%!important;object-fit:cover}
+#quagga-scanner canvas.drawingBuffer{display:none}
+.scanner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scan-frame{width:62%;aspect-ratio:1;border:2px solid var(--accent);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);position:relative}
+.scan-frame::before{content:'';position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scan-line 2s ease-in-out infinite}
+@keyframes scan-line{0%{top:5%}50%{top:90%}100%{top:5%}}
+.question-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;text-align:center}
+.question-level-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-family:var(--mono);color:var(--text2);margin-bottom:12px}
+.question-text{font-size:16px;font-weight:700;line-height:1.4;margin-bottom:6px}
+.question-sub{font-size:12px;color:var(--text2)}
+.scanned-result{background:rgba(0,255,157,.05);border:1px solid rgba(0,255,157,.2);border-radius:12px;padding:13px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.scanned-icon{font-size:24px}
+.scanned-label{font-size:10px;color:var(--text2);font-family:var(--mono)}
+.scanned-value{font-size:15px;font-family:var(--mono);color:var(--accent2);font-weight:700;word-break:break-all}
+.qty-wrap{margin-bottom:14px}
+.qty-label{font-size:12px;color:var(--text2);margin-bottom:7px}
+.qty-input{width:100%;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--text);font-size:20px;font-family:var(--mono);text-align:center;outline:none}
+.qty-input:focus{border-color:var(--accent)}
+.manual-input-wrap{margin-bottom:12px}
+.manual-input-label{font-size:10px;color:var(--text2);font-family:var(--mono);margin-bottom:5px;display:block}
+.manual-input{width:100%;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:13px 14px;color:var(--text);font-size:16px;font-family:var(--mono);text-align:center;letter-spacing:2px;outline:none;transition:border-color .2s}
+.manual-input:focus{border-color:var(--accent)}
+.scanner-hint{text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px}
+.scanner-hint strong{color:var(--accent)}
+.btn{width:100%;padding:14px;border-radius:12px;border:none;font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;transition:opacity .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:9px}
+.btn:active{transform:scale(.97);opacity:.9}
+.btn:last-child{margin-bottom:0}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000}
+.btn-success{background:linear-gradient(135deg,var(--accent2),#00bb73);color:#000}
+.btn-danger{background:linear-gradient(135deg,var(--danger),#cc3344);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-warning{background:linear-gradient(135deg,var(--warning),#dd8800);color:#000}
+.btn-sm{padding:9px 14px;font-size:13px}
+.btn-row{display:flex;gap:9px}
+.btn-row .btn{margin-bottom:0}
+.progress-bar{background:var(--surface2);border-radius:6px;height:5px;margin-bottom:16px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;transition:width .4s ease}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:5px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 18px;font-size:13px;font-weight:600;z-index:9999;display:none;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.toast.success{border-color:var(--accent2);color:var(--accent2)}
+.toast.error{border-color:var(--danger);color:var(--danger)}
+.toast.info{border-color:var(--accent);color:var(--accent)}
+.toast.show{display:block;animation:toast-in .3s ease}
+@keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.success-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center}
+.success-icon{font-size:72px;margin-bottom:18px;animation:pop .5s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.success-title{font-size:22px;font-weight:700;margin-bottom:8px}
+.success-sub{font-size:13px;color:var(--text2);margin-bottom:28px}
+.loading-overlay{position:fixed;inset:0;background:rgba(10,15,30,.9);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column;gap:14px}
+.loading-overlay.show{display:flex}
+.spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--text2);font-family:var(--mono)}
+.export-btn{position:fixed;bottom:80px;right:16px;background:var(--surface);border:1px solid var(--border);color:var(--accent);padding:8px 12px;border-radius:10px;font-size:12px;font-family:var(--mono);cursor:pointer;z-index:500}
+</style>
+</head>
+<body>
+
+<!-- SCREEN: LISTA -->
+<div id="screen-list" class="screen active">
+  <div class="header">
+    <div>
+      <div class="header-title">📦 WMS Scanner</div>
+      <div class="header-sub">Maestro de Productos</div>
+    </div>
+    <div class="header-badge" id="badge-total">Cargando...</div>
+  </div>
+  <div class="content">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" id="search-input"
+        placeholder="Código, nombre o ubicación..."
+        oninput="filterProducts()">
+    </div>
+    <div class="search-hint" id="search-hint">Cargando...</div>
+    <div class="product-list" id="product-list"></div>
+  </div>
+  <button class="export-btn" onclick="exportToCSV()">📥 Exportar CSV</button>
+</div>
+
+<!-- SCREEN: DETALLE -->
+<div id="screen-detail" class="screen">
+  <div class="header">
+    <div class="header-back" onclick="showScreen('list')">←</div>
+    <div>
+      <div class="header-title">Detalle</div>
+      <div class="header-sub" id="detail-code-header">—</div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="detail-card">
+      <div class="detail-row"><div><div class="detail-label">Código</div><div class="detail-value code" id="d-codigo">—</div></div></div>
+      <div class="detail-row"><div style="width:100%"><div class="detail-label">Nombre</div><div class="detail-value" id="d-nombre" style="text-align:left;max-width:100%;font-size:12px">—</div></div></div>
+      <div class="detail-row"><div><div class="detail-label">Ubicación</div></div><div class="detail-value" id="d-ubicacion">—</div></div>
+      <div class="detail-row"><div><div class="detail-label">Unidad de Medida</div></div><div class="detail-value" id="d-unidad">—</div></div>
+    </div>
+    <div class="section-title">Estado de Barcodes por Nivel</div>
+    <div id="levels-overview"></div>
+  </div>
+  <div class="footer-bar">
+    <button class="btn btn-primary" onclick="startRegistration()">📷 Registrar Barcodes nivel por nivel</button>
+    <button class="btn btn-secondary btn-sm" onclick="showScreen('list')">← Volver</button>
+  </div>
+</div>
+
+<!-- SCREEN: SCANNER -->
+<div id="screen-scanner" class="screen">
+  <div class="header">
+    <div class="header-back" onclick="cancelScan()">←</div>
+    <div>
+      <div class="header-title" id="scan-title">Nivel 1</div>
+      <div class="header-sub" id="scan-subtitle">UNIDAD</div>
+    </div>
+    <div class="header-badge" id="scan-level-badge">N1</div>
+  </div>
+  <div class="content">
+    <div class="progress-label">
+      <span id="progress-text">Nivel 1 de 4</span>
+      <span id="progress-pct">25%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:25%"></div></div>
+
+    <div class="question-card">
+      <div class="question-level-badge"><span id="q-level-icon">📦</span><span id="q-level-label">NIVEL 1 — UNIDAD</span></div>
+      <div class="question-text" id="q-text">¿La UNIDAD tiene código de barras?</div>
+      <div class="question-sub">Producto: <strong id="q-product-code">—</strong></div>
+    </div>
+
+    <div class="scanned-result" id="scanned-result" style="display:none">
+      <div class="scanned-icon">✅</div>
+      <div><div class="scanned-label">CÓDIGO ESCANEADO</div><div class="scanned-value" id="scanned-value">—</div></div>
+    </div>
+
+    <div class="qty-wrap" id="qty-wrap" style="display:none">
+      <div class="qty-label">¿Cuántas unidades del nivel anterior trae este empaque?</div>
+      <input type="number" class="qty-input" id="qty-input" placeholder="Ej: 12" min="1">
+    </div>
+
+    <div class="scanner-wrap">
+      <div id="quagga-scanner"></div>
+      <div class="scanner-overlay"><div class="scan-frame"></div></div>
+    </div>
+
+    <div class="scanner-hint">Apunta al código de barras.<br><strong>O usa la pistola lectora / escribe manualmente:</strong></div>
+
+    <div class="manual-input-wrap">
+      <label class="manual-input-label">PISTOLA LECTORA / ENTRADA MANUAL</label>
+      <input type="text" class="manual-input" id="manual-barcode"
+        placeholder="Escanea con pistola o escribe aquí"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()) handleScanResult(this.value.trim())">
+    </div>
+  </div>
+  <div class="footer-bar">
+    <button class="btn btn-success" onclick="confirmBarcode()" id="btn-confirm" style="display:none">✅ Confirmar este código</button>
+    <div class="btn-row">
+      <button class="btn btn-warning" onclick="skipLevel()">⏭ Sin barcode</button>
+      <button class="btn btn-secondary" onclick="finishProduct()">🏁 Finalizar producto</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: EXITO -->
+<div id="screen-success" class="screen">
+  <div class="success-wrap">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">¡Guardado!</div>
+    <div class="success-sub" id="success-msg">Barcodes registrados correctamente.</div>
+    <div style="width:100%">
+      <button class="btn btn-primary" onclick="showScreen('list')">← Volver a la lista</button>
+      <button class="btn btn-secondary" onclick="nextProduct()">➡ Siguiente producto</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loading"><div class="spinner"></div><div class="loading-text" id="loading-text">Cargando...</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const LEVELS=[
+  {id:1,name:'UNIDAD',icon:'📦',question:'¿La UNIDAD tiene código de barras?'},
+  {id:2,name:'EMPAQUE',icon:'🗃️',question:'¿La UNIDAD viene dentro de un EMPAQUE? (caja/funda)'},
+  {id:3,name:'MASTER',icon:'📫',question:'¿El EMPAQUE viene dentro de un MASTER? (caja grande)'},
+  {id:4,name:'PALLET',icon:'🏗️',question:'¿El MASTER viene paletizado en un PALLET?'}
+];
+
+let productos=[],filteredProducts=[],selectedProduct=null,currentLevel=1,scanData={},scannerRunning=false;
+
+window.onload=async function(){
+  showLoading('Cargando productos...');
+  await loadProducts();
+  hideLoading();
+};
+
+async function loadProducts(){
+  // DATOS DE PRUEBA — reemplazar con API de OneDrive cuando esté lista
+  const base=[
+    {Codigo:'A00001',Nombre:'TO ACEITERA TUBO FLEXIBLE 300ML 10 OZ TC1441',Ubicacion:'P2-1007701',UnidadMedida:'UNIDAD'},
+    {Codigo:'A00007',Nombre:'IR ALICATE PARA TERMINALES AISLADOS # 630-B1',Ubicacion:'P2-1102307',UnidadMedida:'UNIDAD'},
+    {Codigo:'A00010',Nombre:'RF ATORNILLADOR 3.6V HDA5101L',Ubicacion:'P2-0104003',UnidadMedida:'UNIDAD'},
+    {Codigo:'A00070',Nombre:'IM ABRAZADERA TW 1/2"(8-14MM)X8MM (100U)',Ubicacion:'P3-017301',UnidadMedida:'FUNDA'},
+    {Codigo:'A00071',Nombre:'REFOR ABRAZADERA EMT 1-1/2" 515(500UNI)',Ubicacion:'P4-011705',UnidadMedida:'FUNDA'},
+    {Codigo:'A00080',Nombre:'SIMONIZ ADITIVO DE ACEITE 354CC 30618',Ubicacion:'P8-021606',UnidadMedida:'UNIDAD'},
+    {Codigo:'A01036',Nombre:'ACEITE 3 EN UNO 30ML.(24)',Ubicacion:'P2-0302202',UnidadMedida:'UNIDAD'},
+    {Codigo:'A01039',Nombre:'ACEITE 3 EN UNO 90ML.(12)',Ubicacion:'P4-024202',UnidadMedida:'UNIDAD'},
+    {Codigo:'A01100',Nombre:'ID ALAMBRE DE PUA FORT 500M',Ubicacion:'P6-020501',UnidadMedida:'ROLLO'},
+    {Codigo:'A01101',Nombre:'ID ALAMBRE DE PUA FORT 400M',Ubicacion:'P6-030301',UnidadMedida:'ROLLO'},
+    {Codigo:'AT00289',Nombre:'AROIL ACEITE DIESEL HIVISC SAE 25W60 (24X1) LT',Ubicacion:'P4-043104',UnidadMedida:'UNIDAD'},
+    {Codigo:'AT00302',Nombre:'LIQ FRENO ATE DOT 3 LITRO (10x1)',Ubicacion:'P1-050302',UnidadMedida:'UNIDAD'},
+  ];
+  const saved=localStorage.getItem('wms_scans');
+  const savedData=saved?JSON.parse(saved):{};
+  productos=base.map(p=>({...p,scans:savedData[p.Codigo]||{}}));
+  filteredProducts=[...productos];
+  document.getElementById('badge-total').textContent=productos.length+' productos';
+  document.getElementById('search-hint').textContent='Mostrando '+productos.length+' productos';
+  renderList();
+}
+
+function renderList(){
+  const list=document.getElementById('product-list');
+  if(!filteredProducts.length){list.innerHTML='<div class="empty-state"><div class="icon">🔍</div><p>Sin resultados</p></div>';return;}
+  list.innerHTML=filteredProducts.map(p=>{
+    const n1=p.scans&&p.scans[1]&&p.scans[1].barcode;
+    const icons={UNIDAD:'📦',ROLLO:'🌀',LITRO:'🧴',GALON:'🪣',FUNDA:'🛍️',CIENTO:'💯',KILO:'⚖️',METRO:'📏'};
+    const ic=icons[p.UnidadMedida]||'📦';
+    return`<div class="product-card ${n1?'done':'pending'}" onclick="selectProduct('${p.Codigo}')">
+      <div class="pc-icon">${ic}</div>
+      <div class="pc-info">
+        <div class="pc-code">${p.Codigo}</div>
+        <div class="pc-name">${p.Nombre}</div>
+        <div class="pc-loc">📍 ${p.Ubicacion} · ${p.UnidadMedida}</div>
+      </div>
+      <span class="pc-status ${n1?'done':'pending'}">${n1?'✓ Listo':'⏳ Pendiente'}</span>
+      <div class="pc-arrow">›</div>
+    </div>`;
+  }).join('');
+}
+
+function filterProducts(){
+  const q=document.getElementById('search-input').value.toLowerCase().trim();
+  filteredProducts=q?productos.filter(p=>p.Codigo.toLowerCase().includes(q)||p.Nombre.toLowerCase().includes(q)||p.Ubicacion.toLowerCase().includes(q)):[...productos];
+  document.getElementById('search-hint').textContent=`Mostrando ${filteredProducts.length} de ${productos.length} productos`;
+  renderList();
+}
+
+function selectProduct(codigo){
+  selectedProduct=productos.find(p=>p.Codigo===codigo);
+  if(!selectedProduct)return;
+  document.getElementById('detail-code-header').textContent=selectedProduct.Codigo;
+  document.getElementById('d-codigo').textContent=selectedProduct.Codigo;
+  document.getElementById('d-nombre').textContent=selectedProduct.Nombre;
+  document.getElementById('d-ubicacion').textContent=selectedProduct.Ubicacion;
+  document.getElementById('d-unidad').textContent=selectedProduct.UnidadMedida;
+  renderLevelsOverview();
+  showScreen('detail');
+}
+
+function renderLevelsOverview(){
+  const sc=selectedProduct.scans||{};
+  document.getElementById('levels-overview').innerHTML=LEVELS.map(lv=>{
+    const s=sc[lv.id];
+    const has=s&&s.barcode;const skip=s&&s.skipped;
+    return`<div class="level-row">
+      <div class="level-num n${lv.id}">${lv.id}</div>
+      <div class="level-info"><div class="level-name">${lv.icon} ${lv.name}</div><div class="level-barcode">${has?s.barcode:skip?'Sin barcode':'Pendiente'}</div></div>
+      <div class="level-check">${has?'✅':skip?'⏭':'⏳'}</div>
+    </div>`;
+  }).join('');
+}
+
+function startRegistration(){currentLevel=1;scanData={};showScannerForLevel(1);}
+
+function showScannerForLevel(level){
+  if(level>4){saveAllScans();return;}
+  currentLevel=level;
+  const lv=LEVELS[level-1];
+  document.getElementById('scan-title').textContent=`Nivel ${level} — ${lv.name}`;
+  document.getElementById('scan-subtitle').textContent=lv.name;
+  document.getElementById('scan-level-badge').textContent=`N${level}`;
+  document.getElementById('q-level-icon').textContent=lv.icon;
+  document.getElementById('q-level-label').textContent=`NIVEL ${level} — ${lv.name}`;
+  document.getElementById('q-text').textContent=lv.question;
+  document.getElementById('q-product-code').textContent=selectedProduct.Codigo;
+  const pct=Math.round((level/4)*100);
+  document.getElementById('progress-text').textContent=`Nivel ${level} de 4`;
+  document.getElementById('progress-pct').textContent=pct+'%';
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('scanned-result').style.display='none';
+  document.getElementById('btn-confirm').style.display='none';
+  document.getElementById('manual-barcode').value='';
+  document.getElementById('qty-wrap').style.display=level>1?'block':'none';
+  if(level>1)document.getElementById('qty-input').value='';
+  showScreen('scanner');
+  startCamera();
+}
+
+function startCamera(){
+  stopCamera();
+  document.getElementById('quagga-scanner').innerHTML='';
+  Quagga.init({
+    inputStream:{name:'Live',type:'LiveStream',target:document.getElementById('quagga-scanner'),
+      constraints:{facingMode:'environment',width:{min:640},height:{min:480}}},
+    locator:{patchSize:'medium',halfSample:true},
+    numOfWorkers:2,frequency:10,
+    decoder:{readers:['code_128_reader','ean_reader','ean_8_reader','code_39_reader','upc_reader','upc_e_reader']},
+    locate:true
+  },function(err){
+    if(err){showToast('⚠️ Cámara no disponible — usa pistola/manual','error');return;}
+    Quagga.start();scannerRunning=true;
+  });
+  Quagga.onDetected(function(result){
+    const code=result.codeResult.code;
+    if(code&&code.length>3)handleScanResult(code);
+  });
+}
+
+function stopCamera(){
+  if(scannerRunning){try{Quagga.stop();}catch(e){}scannerRunning=false;}
+}
+
+function handleScanResult(code){
+  stopCamera();
+  if(navigator.vibrate)navigator.vibrate(150);
+  document.getElementById('scanned-value').textContent=code;
+  document.getElementById('scanned-result').style.display='flex';
+  document.getElementById('btn-confirm').style.display='flex';
+  document.getElementById('manual-barcode').value=code;
+  showToast('📷 Detectado: '+code,'success');
+}
+
+function confirmBarcode(){
+  const code=document.getElementById('scanned-value').textContent;
+  const qty=document.getElementById('qty-input').value;
+  if(currentLevel>1&&!qty){showToast('⚠️ Ingresa la cantidad','error');document.getElementById('qty-input').focus();return;}
+  scanData[currentLevel]={barcode:code,qty:qty?parseInt(qty):null,skipped:false};
+  showToast(`✅ Nivel ${currentLevel} registrado`,'success');
+  setTimeout(()=>showScannerForLevel(currentLevel+1),700);
+}
+
+function skipLevel(){
+  scanData[currentLevel]={barcode:null,qty:null,skipped:true};
+  showToast(`⏭ Nivel ${currentLevel} sin barcode`,'info');
+  setTimeout(()=>showScannerForLevel(currentLevel+1),400);
+}
+
+function finishProduct(){stopCamera();saveAllScans();}
+function cancelScan(){stopCamera();showScreen('detail');}
+
+function saveAllScans(){
+  showLoading('Guardando...');
+  const saved=localStorage.getItem('wms_scans');
+  const all=saved?JSON.parse(saved):{};
+  all[selectedProduct.Codigo]=scanData;
+  localStorage.setItem('wms_scans',JSON.stringify(all));
+  selectedProduct.scans=scanData;
+  const idx=productos.findIndex(p=>p.Codigo===selectedProduct.Codigo);
+  if(idx>=0)productos[idx].scans=scanData;
+  setTimeout(()=>{
+    hideLoading();
+    const n=Object.values(scanData).filter(s=>s.barcode).length;
+    document.getElementById('success-msg').textContent=`${n} nivel(es) registrado(s) para ${selectedProduct.Codigo}`;
+    showScreen('success');
+    renderList();
+  },800);
+}
+
+function nextProduct(){
+  const idx=productos.findIndex(p=>p.Codigo===selectedProduct.Codigo);
+  const next=productos[idx+1];
+  if(next){selectProduct(next.Codigo);startRegistration();}
+  else{showScreen('list');showToast('🎉 ¡Lista completa!','success');}
+}
+
+function exportToCSV(){
+  const saved=localStorage.getItem('wms_scans');
+  if(!saved){showToast('No hay datos guardados','error');return;}
+  const data=JSON.parse(saved);
+  let csv='Codigo,BarcodeN1,QtyN1,BarcodeN2,QtyN2,BarcodeN3,QtyN3,BarcodeN4,QtyN4\n';
+  for(const[cod,sc]of Object.entries(data)){
+    csv+=`${cod},${sc[1]?.barcode||''},${sc[1]?.qty||''},${sc[2]?.barcode||''},${sc[2]?.qty||''},${sc[3]?.barcode||''},${sc[3]?.qty||''},${sc[4]?.barcode||''},${sc[4]?.qty||''}\n`;
+  }
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='wms_barcodes_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();URL.revokeObjectURL(url);
+  showToast('📥 CSV exportado','success');
+}
+
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  if(name!=='scanner')stopCamera();
+}
+function showLoading(t){document.getElementById('loading-text').textContent=t||'Cargando...';document.getElementById('loading').classList.add('show');}
+function hideLoading(){document.getElementById('loading').classList.remove('show');}
+function showToast(msg,type='info'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+type+' show';
+  setTimeout(()=>{t.className='toast';},3000);
+}
+</script>
+</body>
+</html>
