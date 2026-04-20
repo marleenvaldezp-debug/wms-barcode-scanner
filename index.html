@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>WMS Scanner</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="productos.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 :root{--bg:#0a0f1e;--surface:#111827;--surface2:#1e2a3a;--border:#1f3a5f;--accent:#00d4ff;--accent2:#00ff9d;--danger:#ff4757;--warning:#ffa502;--text:#e2e8f0;--text2:#94a3b8;--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif}
@@ -258,21 +259,7 @@ window.onload=async function(){
 };
 
 async function loadProducts(){
-  // DATOS DE PRUEBA — reemplazar con API de OneDrive cuando esté lista
-  const base=[
-    {Codigo:'A00001',Nombre:'TO ACEITERA TUBO FLEXIBLE 300ML 10 OZ TC1441',Ubicacion:'P2-1007701',UnidadMedida:'UNIDAD'},
-    {Codigo:'A00007',Nombre:'IR ALICATE PARA TERMINALES AISLADOS # 630-B1',Ubicacion:'P2-1102307',UnidadMedida:'UNIDAD'},
-    {Codigo:'A00010',Nombre:'RF ATORNILLADOR 3.6V HDA5101L',Ubicacion:'P2-0104003',UnidadMedida:'UNIDAD'},
-    {Codigo:'A00070',Nombre:'IM ABRAZADERA TW 1/2"(8-14MM)X8MM (100U)',Ubicacion:'P3-017301',UnidadMedida:'FUNDA'},
-    {Codigo:'A00071',Nombre:'REFOR ABRAZADERA EMT 1-1/2" 515(500UNI)',Ubicacion:'P4-011705',UnidadMedida:'FUNDA'},
-    {Codigo:'A00080',Nombre:'SIMONIZ ADITIVO DE ACEITE 354CC 30618',Ubicacion:'P8-021606',UnidadMedida:'UNIDAD'},
-    {Codigo:'A01036',Nombre:'ACEITE 3 EN UNO 30ML.(24)',Ubicacion:'P2-0302202',UnidadMedida:'UNIDAD'},
-    {Codigo:'A01039',Nombre:'ACEITE 3 EN UNO 90ML.(12)',Ubicacion:'P4-024202',UnidadMedida:'UNIDAD'},
-    {Codigo:'A01100',Nombre:'ID ALAMBRE DE PUA FORT 500M',Ubicacion:'P6-020501',UnidadMedida:'ROLLO'},
-    {Codigo:'A01101',Nombre:'ID ALAMBRE DE PUA FORT 400M',Ubicacion:'P6-030301',UnidadMedida:'ROLLO'},
-    {Codigo:'AT00289',Nombre:'AROIL ACEITE DIESEL HIVISC SAE 25W60 (24X1) LT',Ubicacion:'P4-043104',UnidadMedida:'UNIDAD'},
-    {Codigo:'AT00302',Nombre:'LIQ FRENO ATE DOT 3 LITRO (10x1)',Ubicacion:'P1-050302',UnidadMedida:'UNIDAD'},
-  ];
+  const base = PRODUCTOS_DATA;
   const saved=localStorage.getItem('wms_scans');
   const savedData=saved?JSON.parse(saved):{};
   productos=base.map(p=>({...p,scans:savedData[p.Codigo]||{}}));
